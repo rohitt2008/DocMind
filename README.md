@@ -139,7 +139,7 @@ A chunk that ranks highly in *either* method (or both) rises to the top — givi
 
 | Layer | Technology |
 |---|---|
-| Frontend | React (Vite), vanilla CSS |
+| Frontend | React (Vite), Tailwind CSS, Framer Motion |
 | Backend | Node.js, Express |
 | Database | MongoDB (documents, chunks, embeddings) |
 | Job Queue | BullMQ + Redis |
