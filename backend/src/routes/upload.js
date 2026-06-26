@@ -3,8 +3,7 @@ const multer = require('multer');
 const fs = require('fs');
 const { PDFParse } = require('pdf-parse');
 const Document = require('../models/Document');
-const { chunkText } = require('../utils/chunker');
-const { generateEmbedding } = require('../utils/embeddings');
+const documentQueue = require('../queues/documentQueue');
 
 const router = express.Router();
 
@@ -23,53 +22,62 @@ router.post('/upload', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    // Read the uploaded PDF file from disk
+    // Extract text immediately (this part is fast — only chunking/embedding is slow)
     const filePath = req.file.path;
     const dataBuffer = fs.readFileSync(filePath);
-
-    // Extract text from PDF (pdf-parse v2 uses a class-based API)
     const parser = new PDFParse({ data: dataBuffer });
     const pdfData = await parser.getText();
     const extractedText = pdfData.text;
-    await parser.destroy(); // free up resources
+    await parser.destroy();
 
-    // Split the extracted text into overlapping chunks
-    const textChunks = chunkText(extractedText, 1000, 200);
-    console.log(`Split into ${textChunks.length} chunks. Generating embeddings...`);
+    // Clean up the temp file right away
+    fs.unlinkSync(filePath);
 
-    // Generate an embedding for each chunk
-    // (sequential loop here for simplicity — Phase 6 will move this to a background job queue)
-    const chunksWithEmbeddings = [];
-    for (let i = 0; i < textChunks.length; i++) {
-      const embedding = await generateEmbedding(textChunks[i]);
-      chunksWithEmbeddings.push({
-        text: textChunks[i],
-        embedding: embedding,
-        chunkIndex: i
-      });
-    }
-    console.log('All embeddings generated.');
-
-    // Save to MongoDB
+    // Save a document record immediately with status "processing" (no chunks yet)
     const newDoc = await Document.create({
       filename: req.file.originalname,
       rawText: extractedText,
-      chunks: chunksWithEmbeddings
+      status: 'processing'
     });
 
-    // Clean up: delete the temp file from disk (we already saved text in DB)
-    fs.unlinkSync(filePath);
+    // Hand off the slow work (chunking + embeddings) to the background worker
+    await documentQueue.add('process-document', {
+      documentId: newDoc._id.toString(),
+      extractedText
+    });
 
-    res.status(201).json({
-      message: 'File uploaded and processed successfully',
+    // Respond immediately — don't make the user wait for processing to finish
+    res.status(202).json({
+      message: 'File uploaded. Processing in background.',
       documentId: newDoc._id,
       filename: newDoc.filename,
-      totalChunks: chunksWithEmbeddings.length,
-      textLength: extractedText.length
+      status: 'processing'
     });
   } catch (err) {
     console.error('Upload error:', err);
     res.status(500).json({ error: 'Something went wrong processing the file' });
+  }
+});
+
+// GET /api/documents/:id/status
+// Frontend polls this to check when processing is done
+router.get('/documents/:id/status', async (req, res) => {
+  try {
+    const doc = await Document.findById(req.params.id).select('status filename errorMessage chunks');
+    if (!doc) {
+      return res.status(404).json({ error: 'Document not found' });
+    }
+
+    res.status(200).json({
+      documentId: doc._id,
+      filename: doc.filename,
+      status: doc.status,
+      totalChunks: doc.chunks.length,
+      errorMessage: doc.errorMessage
+    });
+  } catch (err) {
+    console.error('Status check error:', err);
+    res.status(500).json({ error: 'Something went wrong checking status' });
   }
 });
 

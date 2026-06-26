@@ -22,9 +22,18 @@ const documentSchema = new mongoose.Schema({
   },
   rawText: {
     type: String,
-    required: true
+    default: ''
   },
   chunks: [chunkSchema],
+  status: {
+    type: String,
+    enum: ['processing', 'completed', 'failed'],
+    default: 'processing'
+  },
+  errorMessage: {
+    type: String,
+    default: null
+  },
   uploadedAt: {
     type: Date,
     default: Date.now
