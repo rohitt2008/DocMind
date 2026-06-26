@@ -186,9 +186,11 @@ docmind/
 │
 └── frontend/
     ├── package.json
+    ├── tailwind.config.js
+    ├── postcss.config.js
     └── src/
         ├── App.jsx
-        ├── App.css
+        ├── index.css
         ├── api.js                    # Upload, polling, and SSE streaming helpers
         └── components/
             ├── UploadBox.jsx
