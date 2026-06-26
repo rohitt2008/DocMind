@@ -46,4 +46,13 @@ function findTopKChunks(queryEmbedding, chunks, topK = 3) {
   return scored.slice(0, topK);
 }
 
-module.exports = { cosineSimilarity, findTopKChunks };
+/**
+ * Same as findTopKChunks but returns ALL chunks ranked (no slicing).
+ * Needed for Reciprocal Rank Fusion, which needs full rank positions
+ * from both semantic and keyword search to merge properly.
+ */
+function findTopKChunksFullRanking(queryEmbedding, chunks) {
+  return findTopKChunks(queryEmbedding, chunks, chunks.length);
+}
+
+module.exports = { cosineSimilarity, findTopKChunks, findTopKChunksFullRanking };

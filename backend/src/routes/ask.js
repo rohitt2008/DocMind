@@ -1,7 +1,7 @@
 const express = require('express');
 const Document = require('../models/Document');
 const { generateEmbedding } = require('../utils/embeddings');
-const { findTopKChunks } = require('../utils/similarity');
+const { hybridSearch } = require('../utils/hybridSearch');
 const { generateAnswer, generateAnswerStream } = require('../utils/groqClient');
 
 const router = express.Router();
@@ -25,8 +25,8 @@ router.post('/ask', async (req, res) => {
     // 2. Embed the user's question using the same model used for chunks
     const questionEmbedding = await generateEmbedding(question);
 
-    // 3. Find the most relevant chunks via cosine similarity
-    const topChunks = findTopKChunks(questionEmbedding, document.chunks, 3);
+    // 3. Find the most relevant chunks using hybrid search (semantic + keyword, merged via RRF)
+    const topChunks = hybridSearch(questionEmbedding, question, document.chunks, 3);
 
     // 4. Send those chunks + the question to the LLM
     const contextTexts = topChunks.map(chunk => chunk.text);
@@ -38,7 +38,9 @@ router.post('/ask', async (req, res) => {
       sources: topChunks.map(chunk => ({
         chunkIndex: chunk.chunkIndex,
         text: chunk.text,
-        relevanceScore: chunk.score.toFixed(3)
+        rrfScore: chunk.rrfScore.toFixed(4),
+        semanticRank: chunk.semanticRank ?? null,
+        keywordRank: chunk.keywordRank ?? null
       }))
     });
   } catch (err) {
@@ -65,7 +67,7 @@ router.post('/ask-stream', async (req, res) => {
     }
 
     const questionEmbedding = await generateEmbedding(question);
-    const topChunks = findTopKChunks(questionEmbedding, document.chunks, 3);
+    const topChunks = hybridSearch(questionEmbedding, question, document.chunks, 3);
     const contextTexts = topChunks.map(chunk => chunk.text);
 
     // --- Set up SSE headers ---
@@ -80,7 +82,9 @@ router.post('/ask-stream', async (req, res) => {
       topChunks.map(chunk => ({
         chunkIndex: chunk.chunkIndex,
         text: chunk.text,
-        relevanceScore: chunk.score.toFixed(3)
+        rrfScore: chunk.rrfScore.toFixed(4),
+        semanticRank: chunk.semanticRank ?? null,
+        keywordRank: chunk.keywordRank ?? null
       }))
     )}\n\n`);
 
