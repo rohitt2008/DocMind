@@ -8,34 +8,38 @@
  * @returns {string[]} array of text chunks
  */
 function chunkText(text, chunkSize = 1000, overlap = 200) {
-    // Clean up excessive whitespace/newlines first
-    const cleanText = text.replace(/\s+/g, ' ').trim();
+  // Clean up excessive whitespace/newlines, and strip pdf-parse page separator artifacts
+  // (e.g. "-- 1 of 1 --", "-- 2 of 5 --") that have no semantic value and pollute chunks
+  const cleanText = text
+    .replace(/--\s*\d+\s*of\s*\d+\s*--/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 
-    // Split into sentences (basic split on '. ', '? ', '! ')
-    const sentences = cleanText.split(/(?<=[.?!])\s+/);
+  // Split into sentences (basic split on '. ', '? ', '! ')
+  const sentences = cleanText.split(/(?<=[.?!])\s+/);
 
-    const chunks = [];
-    let currentChunk = '';
+  const chunks = [];
+  let currentChunk = '';
 
-    for (const sentence of sentences) {
-        // If adding this sentence would exceed chunkSize, save current chunk and start new one
-        if ((currentChunk + sentence).length > chunkSize && currentChunk.length > 0) {
-            chunks.push(currentChunk.trim());
+  for (const sentence of sentences) {
+    // If adding this sentence would exceed chunkSize, save current chunk and start new one
+    if ((currentChunk + sentence).length > chunkSize && currentChunk.length > 0) {
+      chunks.push(currentChunk.trim());
 
-            // Start next chunk with overlap from the end of the previous chunk
-            const overlapText = currentChunk.slice(-overlap);
-            currentChunk = overlapText + ' ' + sentence;
-        } else {
-            currentChunk += ' ' + sentence;
-        }
+      // Start next chunk with overlap from the end of the previous chunk
+      const overlapText = currentChunk.slice(-overlap);
+      currentChunk = overlapText + ' ' + sentence;
+    } else {
+      currentChunk += ' ' + sentence;
     }
+  }
 
-    // Push the last remaining chunk
-    if (currentChunk.trim().length > 0) {
-        chunks.push(currentChunk.trim());
-    }
+  // Push the last remaining chunk
+  if (currentChunk.trim().length > 0) {
+    chunks.push(currentChunk.trim());
+  }
 
-    return chunks;
+  return chunks;
 }
 
 module.exports = { chunkText };

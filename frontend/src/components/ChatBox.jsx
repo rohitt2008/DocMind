@@ -1,10 +1,15 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { streamAnswer } from '../api';
 
 export default function ChatBox({ documentId, filename }) {
   const [question, setQuestion] = useState('');
   const [messages, setMessages] = useState([]); // { question, answer, sources, isStreaming }
   const [isAsking, setIsAsking] = useState(false);
+  const messagesEndRef = useRef(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
   const handleAsk = async () => {
     if (!question.trim() || isAsking) return;
@@ -79,8 +84,12 @@ export default function ChatBox({ documentId, filename }) {
           <div key={i} className="message-pair">
             <div className="user-question">🧑 {msg.question}</div>
             <div className="ai-answer">
-              🤖 {msg.answer}
-              {msg.isStreaming && <span className="cursor-blink">▋</span>}
+              🤖 {msg.answer.length === 0 && msg.isStreaming ? (
+                <span className="searching-text">Searching document...</span>
+              ) : (
+                msg.answer
+              )}
+              {msg.isStreaming && msg.answer.length > 0 && <span className="cursor-blink">▋</span>}
             </div>
 
             {msg.sources?.length > 0 && (
@@ -100,6 +109,7 @@ export default function ChatBox({ documentId, filename }) {
             )}
           </div>
         ))}
+        <div ref={messagesEndRef} />
       </div>
 
       <div className="input-row">

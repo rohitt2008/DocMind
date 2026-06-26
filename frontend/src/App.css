@@ -104,6 +104,11 @@ input[type="file"] {
   animation: blink 1s step-start infinite;
 }
 
+.searching-text {
+  color: #6b7280;
+  font-style: italic;
+}
+
 @keyframes blink {
   50% { opacity: 0; }
 }
