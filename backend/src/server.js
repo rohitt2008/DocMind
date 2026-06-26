@@ -4,12 +4,13 @@ const cors = require('cors');
 const fs = require('fs');
 const connectDB = require('./config/db');
 const uploadRoutes = require('./routes/upload');
+const askRoutes = require('./routes/ask');
 
 const app = express();
 
 // Make sure uploads/ folder exists
 if (!fs.existsSync('uploads')) {
-    fs.mkdirSync('uploads');
+  fs.mkdirSync('uploads');
 }
 
 // Middleware
@@ -21,13 +22,14 @@ connectDB();
 
 // Routes
 app.use('/api', uploadRoutes);
+app.use('/api', askRoutes);
 
 // Health check
 app.get('/', (req, res) => {
-    res.send('DocMind backend is running 🚀');
+  res.send('DocMind backend is running 🚀');
 });
 
-const PORT = process.env.PORT || 5001;
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`Server running on http://localhost:${PORT}`);
 });
